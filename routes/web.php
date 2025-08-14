@@ -1,18 +1,22 @@
 <?php
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\PemasukanController;
-use App\Http\Controllers\PengeluaranController;
+use Illuminate\Support\Facades\Request;
+use App\Http\Controllers\ObatController;
 use App\Http\Controllers\StokController;
 use App\Http\Controllers\DombaController;
 use App\Http\Controllers\PakanController;
-use App\Http\Controllers\ObatController;
-use App\Http\Controllers\PeralatanController;
-use App\Http\Controllers\PelangganSupplierController;
-use App\Http\Controllers\PelangganController;
-use App\Http\Controllers\SupplierController;
+use Telegram\Bot\Laravel\Facades\Telegram;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PelangganController;
+use App\Http\Controllers\PemasukanController;
+use App\Http\Controllers\PeralatanController;
+use App\Http\Controllers\PengeluaranController;
+use App\Http\Controllers\TelegramBotController;
+use App\Http\Controllers\PelangganSupplierController;
 
 // Rute Dashboard
 Route::get('/', [DashboardController::class, 'dashboard']);
@@ -72,5 +76,17 @@ Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index
 Route::get('/laporan/export-csv', [LaporanController::class, 'exportCsv'])->name('laporan.exportCsv');
 
 // Rute Notifikasi & Ekspor (masih dummy)
-Route::get('/ekspor', function() { return view('pages.ekspor'); });
-Route::get('/notifikasi', function() { return view('pages.notifikasi'); });
+Route::get('/ekspor', function () {
+    return view('pages.ekspor');
+});
+Route::get('/notifikasi', function () {
+    return view('pages.notifikasi');
+});
+
+// Route::post('/telegram/webhook', [TelegramBotController::class, 'handleWebhook']);
+// Route::post('/telegram/webhook', function (Request $request) {
+//     $update = Telegram::commandsHandler(true);
+//     Log::info('Telegram Update:', $request->all());
+//     return 'ok'; // WAJIB return string agar tidak 419
+// });
+Route::post('/telegram/webhook', [TelegramBotController::class, 'handleWebhook']);

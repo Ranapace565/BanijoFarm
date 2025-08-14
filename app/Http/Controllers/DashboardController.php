@@ -3,43 +3,61 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Pemasukan;
-use App\Models\Pengeluaran; // Pastikan model Pengeluaran sudah di-import
+use Kreait\Laravel\Firebase\Facades\Firebase;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
     /**
-     * Menampilkan halaman utama dashboard dengan data ringkasan yang dinamis.
+     * Menampilkan halaman utama dashboard dengan data ringkasan dari Firestore.
      */
     public function dashboard()
     {
-        // 1. Ambil total pemasukan dari database
-        $totalPemasukan = Pemasukan::sum('jumlah');
+        // 3. Inisialisasi Firestore
+        $firestore = Firebase::firestore();
+        $transaksiCollection = $firestore->database()->collection('transaksi');
 
-        // 2. Ambil total pengeluaran dari database secara dinamis
-        $totalPengeluaran = Pengeluaran::sum('jumlah');
+        // 4. Hitung total pemasukan dari koleksi 'transaksi'
+        $pemasukanQuery = $transaksiCollection->where('tipe', '==', 'pemasukan');
+        $pemasukanDocs = $pemasukanQuery->documents();
+        $totalPemasukan = 0;
+        foreach ($pemasukanDocs as $doc) {
+            $totalPemasukan += $doc->data()['jumlah'] ?? 0;
+        }
 
-        // 3. Hitung saldo saat ini secara otomatis
+        // 5. Hitung total pengeluaran dari koleksi 'transaksi'
+        $pengeluaranQuery = $transaksiCollection->where('tipe', '==', 'pengeluaran');
+        $pengeluaranDocs = $pengeluaranQuery->documents();
+        $totalPengeluaran = 0;
+        foreach ($pengeluaranDocs as $doc) {
+            $totalPengeluaran += $doc->data()['jumlah'] ?? 0;
+        }
+
+        // 6. Hitung saldo saat ini (logika ini tetap sama)
         $saldo = $totalPemasukan - $totalPengeluaran;
 
-        // 4. Menggabungkan data pemasukan dan pengeluaran untuk aktivitas terbaru
-        // Tambahkan kolom 'jenis' untuk membedakan di view
-        $pemasukans = Pemasukan::latest()->get()->map(function ($item) {
-            $item->jenis = 'Pemasukan';
-            return $item;
-        });
+        // 7. Ambil 5 transaksi terbaru (query ini menjadi lebih simpel di Firestore)
+        $recentQuery = $transaksiCollection->orderBy('tanggal', 'DESC')->limit(5);
+        $recentDocuments = $recentQuery->documents();
 
-        $pengeluarans = Pengeluaran::latest()->get()->map(function ($item) {
-            $item->jenis = 'Pengeluaran';
-            return $item;
-        });
+        $recentTransactions = [];
+        foreach ($recentDocuments as $document) {
+            if ($document->exists()) {
+                $data = $document->data();
 
-        // Gabungkan kedua koleksi, urutkan berdasarkan tanggal dibuat, dan ambil 5 yang terbaru
-        $recentTransactions = $pemasukans->merge($pengeluarans)
-            ->sortByDesc('created_at')
-            ->take(5);
+                // Menyesuaikan format agar kompatibel dengan view yang ada
+                $data['jenis'] = ucfirst($data['tipe'] ?? 'transaksi');
 
-        // 5. Kirim semua data yang sudah dinamis ke view
+                // Format tanggal agar bisa dibaca di view
+                $timestamp = $data['tanggal'] ?? null;
+                $data['created_at'] = $timestamp ? Carbon::parse($timestamp->formatAsString()) : now();
+
+                // Kita ubah array menjadi objek agar di view bisa dipanggil seperti $item->jenis
+                $recentTransactions[] = (object)$data;
+            }
+        }
+
+        // 8. Kirim semua data ke view
         return view('pages.dashboard', [
             'totalPemasukan' => $totalPemasukan,
             'totalPengeluaran' => $totalPengeluaran,
