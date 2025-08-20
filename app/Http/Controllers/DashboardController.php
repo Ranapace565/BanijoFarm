@@ -2,93 +2,59 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Keuangan;
+// Model Domba sudah dihapus dari sini
 use Illuminate\Http\Request;
-use Kreait\Laravel\Firebase\Facades\Firebase;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    /**
-     * Menampilkan halaman utama dashboard dengan data ringkasan dari Firestore.
-     */
-    public function dashboard()
+    public function index()
     {
-        // 3. Inisialisasi Firestore
-        $firestore = Firebase::firestore();
-        $transaksiCollection = $firestore->database()->collection('transaksi');
-
-        // 4. Hitung total pemasukan dari koleksi 'transaksi'
-        $pemasukanQuery = $transaksiCollection->where('tipe', '==', 'pemasukan');
-        $pemasukanDocs = $pemasukanQuery->documents();
-        $totalPemasukan = 0;
-        foreach ($pemasukanDocs as $doc) {
-            $totalPemasukan += $doc->data()['jumlah'] ?? 0;
-        }
-
-        // 5. Hitung total pengeluaran dari koleksi 'transaksi'
-        $pengeluaranQuery = $transaksiCollection->where('tipe', '==', 'pengeluaran');
-        $pengeluaranDocs = $pengeluaranQuery->documents();
-        $totalPengeluaran = 0;
-        foreach ($pengeluaranDocs as $doc) {
-            $totalPengeluaran += $doc->data()['jumlah'] ?? 0;
-        }
-
-        // 6. Hitung saldo saat ini (logika ini tetap sama)
+        // --- Data Kartu Ringkasan Keuangan ---
+        $totalPemasukan = Keuangan::where('jenis', 'pemasukan')->sum('jumlah');
+        $totalPengeluaran = Keuangan::where('jenis', 'pengeluaran')->sum('jumlah');
         $saldo = $totalPemasukan - $totalPengeluaran;
+        
+        // --- Data Grafik Garis (Pemasukan Bulanan) ---
+        $chartDataRaw = Keuangan::select(
+                DB::raw("DATE_FORMAT(created_at, '%b') as bulan"),
+                DB::raw('SUM(jumlah) as total')
+            )
+            ->where('jenis', 'pemasukan')
+            ->where('created_at', '>=', Carbon::now()->subMonths(5))
+            ->groupBy('bulan')
+            ->orderByRaw('MIN(created_at)')
+            ->get();
+            
+        $chartLabels = $chartDataRaw->pluck('bulan');
+        $chartData = $chartDataRaw->pluck('total');
 
-        // 7. Ambil 5 transaksi terbaru (query ini menjadi lebih simpel di Firestore)
-        $recentQuery = $transaksiCollection->orderBy('tanggal', 'DESC')->limit(5);
-        $recentDocuments = $recentQuery->documents();
+        // --- Aktivitas Terbaru ---
+        $recentTransactions = Keuangan::latest()->take(5)->get();
 
-        $recentTransactions = [];
-        foreach ($recentDocuments as $document) {
-            if ($document->exists()) {
-                $data = $document->data();
+        // --- Data Pie Chart Pemasukan ---
+        $incomeStats = Keuangan::select('keterangan', DB::raw('SUM(jumlah) as total'))
+            ->where('jenis', 'pemasukan')->whereNotNull('keterangan')->where('keterangan', '!=', '')
+            ->groupBy('keterangan')->orderBy('total', 'desc')->take(5)->get();
 
-                // Menyesuaikan format agar kompatibel dengan view yang ada
-                $data['jenis'] = ucfirst($data['tipe'] ?? 'transaksi');
+        // --- Data Pie Chart Pengeluaran ---
+        $expenseStats = Keuangan::select('keterangan', DB::raw('SUM(jumlah) as total'))
+            ->where('jenis', 'pengeluaran')->whereNotNull('keterangan')->where('keterangan', '!=', '')
+            ->groupBy('keterangan')->orderBy('total', 'desc')->take(5)->get();
 
-                // Format tanggal agar bisa dibaca di view
-                $timestamp = $data['tanggal'] ?? null;
-                $data['created_at'] = $timestamp ? Carbon::parse($timestamp->formatAsString()) : now();
-
-                // Kita ubah array menjadi objek agar di view bisa dipanggil seperti $item->jenis
-                $recentTransactions[] = (object)$data;
-            }
-        }
-
-        // 8. Kirim semua data ke view
-        return view('pages.dashboard', [
-            'totalPemasukan' => $totalPemasukan,
-            'totalPengeluaran' => $totalPengeluaran,
-            'saldo' => $saldo,
-            'recentTransactions' => $recentTransactions
-        ]);
-    }
-
-    // --- Fungsi untuk halaman lain (tidak perlu diubah) ---
-    public function pemasukan()
-    {
-        return view('pages.pemasukan');
-    }
-    public function pengeluaran()
-    {
-        return view('pages.pengeluaran');
-    }
-    public function stok()
-    {
-        return view('pages.stok');
-    }
-    public function pelangganSupplier()
-    {
-        return view('pages.pelanggan-supplier');
-    }
-    public function laporan()
-    {
-        return view('pages.laporan');
-    }
-    public function notifikasi()
-    {
-        return view('pages.notifikasi');
+        // --- Kirim semua variabel ke view ---
+        return view('pages.dashboard', compact(
+            'totalPemasukan',
+            'totalPengeluaran',
+            'saldo',
+            // 'stokDomba' sudah dihapus
+            'recentTransactions',
+            'chartLabels',
+            'chartData',
+            'incomeStats',
+            'expenseStats'
+        ));
     }
 }

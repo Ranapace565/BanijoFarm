@@ -2,68 +2,94 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Keuangan;
 use Illuminate\Http\Request;
-use App\Models\Pemasukan;
-use App\Models\Pengeluaran;
 use Carbon\Carbon;
 
 class LaporanController extends Controller
 {
     public function index(Request $request)
     {
-        // Tentukan periode default (bulan dan tahun saat ini) jika tidak ada input
-        $selectedPeriod = $request->input('periode', Carbon::now()->format('Y-m'));
-        $carbonDate = Carbon::createFromFormat('Y-m', $selectedPeriod);
-        $year = $carbonDate->year;
-        $month = $carbonDate->month;
+        $periode = $request->input('periode', 'semua');
+        $query = Keuangan::latest();
 
-        // 1. Ambil semua data pemasukan untuk periode yang dipilih
-        $pemasukans = Pemasukan::whereYear('tanggal', $year)
-                               ->whereMonth('tanggal', $month)
-                               ->orderBy('tanggal', 'asc')
-                               ->get();
-        
-        // 2. Ambil semua data pengeluaran untuk periode yang dipilih
-        $pengeluarans = Pengeluaran::whereYear('tanggal', $year)
-                                  ->whereMonth('tanggal', $month)
-                                  ->orderBy('tanggal', 'asc')
-                                  ->get();
+        $tanggalMulai = null;
+        $tanggalSelesai = Carbon::now()->endOfDay();
 
-        // 3. Hitung totalnya
-        $totalPemasukan = $pemasukans->sum('jumlah');
-        $totalPengeluaran = $pengeluarans->sum('jumlah');
+        switch ($periode) {
+            case 'harian':
+                $tanggalMulai = Carbon::now()->startOfDay();
+                $judul = 'Laporan Harian';
+                break;
+            case 'mingguan':
+                $tanggalMulai = Carbon::now()->subDays(7)->startOfDay();
+                $judul = 'Laporan Minggu Ini';
+                break;
+            case 'bulanan':
+                $tanggalMulai = Carbon::now()->startOfMonth();
+                $judul = 'Laporan Bulan Ini';
+                break;
+            default:
+                $judul = 'Laporan Keseluruhan';
+                break;
+        }
 
-        // 4. Hitung Laba / Rugi
-        $labaRugi = $totalPemasukan - $totalPengeluaran;
+        if ($tanggalMulai) {
+            $query->whereBetween('created_at', [$tanggalMulai, $tanggalSelesai]);
+        }
 
-        // 5. Kirim semua data yang sudah diolah ke view
-        return view('pages.laporan', [
-            'pemasukans' => $pemasukans,
-            'pengeluarans' => $pengeluarans,
-            'totalPemasukan' => $totalPemasukan,
-            'totalPengeluaran' => $totalPengeluaran,
-            'labaRugi' => $labaRugi,
-            'selectedPeriod' => $selectedPeriod, // Untuk mengisi kembali value di input filter
-        ]);
+        // Ambil data transaksi untuk ditampilkan di tabel
+        $transaksis = (clone $query)->paginate(15);
+
+        // PERBAIKAN LOGIKA: Gunakan clone query untuk setiap perhitungan agar tidak saling tumpuk
+        $totalPemasukan = (clone $query)->where('jenis', 'pemasukan')->sum('jumlah');
+        $totalPengeluaran = (clone $query)->where('jenis', 'pengeluaran')->sum('jumlah');
+        $saldo = $totalPemasukan - $totalPengeluaran;
+
+        return view('pages.laporan.index', compact(
+            'transaksis', 
+            'totalPemasukan', 
+            'totalPengeluaran', 
+            'saldo',
+            'judul',
+            'periode'
+        ));
     }
-    public function exportCsv(Request $request)
+
+    /**
+     * DIHAPUS: Fungsi duplikat yang lama sudah dihapus.
+     * Hanya fungsi di bawah ini yang digunakan.
+     */
+    public function export(Request $request)
     {
-        $selectedPeriod = $request->input('periode', Carbon::now()->format('Y-m'));
-        $carbonDate = Carbon::createFromFormat('Y-m', $selectedPeriod);
-        $year = $carbonDate->year;
-        $month = $carbonDate->month;
-        $periodeFormatted = $carbonDate->isoFormat('MMMM YYYY');
+        $periode = $request->input('periode', 'semua');
+        $tanggal = Carbon::now()->format('Y-m-d');
+        $fileName = "laporan-keuangan-{$periode}-{$tanggal}.csv";
 
-        // Ambil data sama seperti di fungsi index
-        $pemasukans = Pemasukan::whereYear('tanggal', $year)->whereMonth('tanggal', $month)->get();
-        $pengeluarans = Pengeluaran::whereYear('tanggal', $year)->whereMonth('tanggal', $month)->get();
-        $totalPemasukan = $pemasukans->sum('jumlah');
-        $totalPengeluaran = $pengeluarans->sum('jumlah');
-        $labaRugi = $totalPemasukan - $totalPengeluaran;
+        // Ambil data dari database dengan logika filter yang sama seperti di method index()
+        $query = Keuangan::query();
+        $tanggalMulai = null;
+        $tanggalSelesai = Carbon::now()->endOfDay();
 
-        $fileName = 'Laporan Keuangan - ' . $periodeFormatted . '.csv';
+        switch ($periode) {
+            case 'harian':
+                $tanggalMulai = Carbon::now()->startOfDay();
+                break;
+            case 'mingguan':
+                $tanggalMulai = Carbon::now()->subDays(7)->startOfDay();
+                break;
+            case 'bulanan':
+                $tanggalMulai = Carbon::now()->startOfMonth();
+                break;
+        }
 
-        // Header untuk memberitahu browser bahwa ini adalah file CSV yang akan diunduh
+        if ($tanggalMulai) {
+            $query->whereBetween('created_at', [$tanggalMulai, $tanggalSelesai]);
+        }
+        
+        $transaksis = $query->latest()->get(); // Ambil semua data yang terfilter
+
+        // Siapkan header untuk file CSV dan browser
         $headers = array(
             "Content-type"        => "text/csv",
             "Content-Disposition" => "attachment; filename=$fileName",
@@ -72,39 +98,28 @@ class LaporanController extends Controller
             "Expires"             => "0"
         );
 
-        // Callback untuk menulis data CSV baris per baris
-        $callback = function() use($pemasukans, $pengeluarans, $totalPemasukan, $totalPengeluaran, $labaRugi, $periodeFormatted) {
+        // Buat file CSV di memori
+        $callback = function() use($transaksis) {
             $file = fopen('php://output', 'w');
 
-            // Judul Laporan
-            fputcsv($file, ['Laporan Laba Rugi']);
-            fputcsv($file, ['Periode:', $periodeFormatted]);
-            fputcsv($file, []); // Baris kosong
+            // Tulis baris header
+            fputcsv($file, ['ID', 'Tanggal', 'Jenis', 'Jumlah (Rp)', 'Keterangan']);
 
-            // Ringkasan
-            fputcsv($file, ['Total Pemasukan', 'Total Pengeluaran', 'Laba / Rugi']);
-            fputcsv($file, [$totalPemasukan, $totalPengeluaran, $labaRugi]);
-            fputcsv($file, []); // Baris kosong
-
-            // Rincian Pemasukan
-            fputcsv($file, ['Rincian Pemasukan']);
-            fputcsv($file, ['Tanggal', 'Keterangan', 'Jumlah']);
-            foreach ($pemasukans as $pemasukan) {
-                fputcsv($file, [$pemasukan->tanggal, $pemasukan->keterangan, $pemasukan->jumlah]);
-            }
-            fputcsv($file, []); // Baris kosong
-
-            // Rincian Pengeluaran
-            fputcsv($file, ['Rincian Pengeluaran']);
-            fputcsv($file, ['Tanggal', 'Keterangan', 'Jumlah']);
-            foreach ($pengeluarans as $pengeluaran) {
-                fputcsv($file, [$pengeluaran->tanggal, $pengeluaran->keterangan, $pengeluaran->jumlah]);
+            // Tulis setiap baris data
+            foreach ($transaksis as $trx) {
+                fputcsv($file, [
+                    $trx->id,
+                    $trx->created_at->format('d-m-Y H:i'),
+                    ucfirst($trx->jenis),
+                    $trx->jumlah,
+                    $trx->keterangan
+                ]);
             }
 
             fclose($file);
         };
 
-        // Kirim respon ke browser
+        // Kirim file CSV ke browser untuk di-download
         return response()->stream($callback, 200, $headers);
     }
 }

@@ -7,10 +7,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') - Banijo Farm</title>
 
+    {{-- Fonts --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 
+    {{-- Styles --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -43,6 +45,7 @@
             left: 0;
             padding: 1.5rem;
             border-right: 1px solid #dee2e6;
+            z-index: 100;
         }
 
         .sidebar-header {
@@ -92,10 +95,6 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
-        .top-navbar .form-control {
-            border: none;
-        }
-
         .top-navbar .profile-pic {
             width: 40px;
             height: 40px;
@@ -106,7 +105,6 @@
 </head>
 
 <body>
-
     <div class="main-wrapper">
         <div class="sidebar">
             <div class="sidebar-header mb-4 d-flex align-items-center">
@@ -114,34 +112,51 @@
                 <span>Banijo Farm</span>
             </div>
 
+            {{-- =============================================== --}}
+            {{-- SIDEBAR YANG SUDAH DIGABUNG DAN DISEMPURNAKAN --}}
+            {{-- =============================================== --}}
             <ul class="nav nav-pills flex-column">
-                <li class="nav-item"><a href="{{ url('/') }}"
-                        class="nav-link {{ request()->is('/') ? 'active' : '' }}"><i
-                            class="bi bi-speedometer2"></i>Dashboard</a></li>
-                <li class="nav-item"><a href="{{ url('/pemasukan') }}"
-                        class="nav-link {{ request()->is('pemasukan*') ? 'active' : '' }}"><i
-                            class="bi bi-box-arrow-in-down"></i>Kelola Pemasukan</a></li>
-                <li class="nav-item"><a href="{{ url('/pengeluaran') }}"
-                        class="nav-link {{ request()->is('pengeluaran*') ? 'active' : '' }}"><i
-                            class="bi bi-box-arrow-up"></i>Kelola Pengeluaran</a></li>
-                <li class="nav-item"><a href="{{ url('/stok') }}"
-                        class="nav-link {{ request()->is('stok*') ? 'active' : '' }}"><i
-                            class="bi bi-boxes"></i>Manajemen Stok</a></li>
-                <li class="nav-item"><a href="{{ url('/pelanggan-supplier') }}"
-                        class="nav-link {{ request()->is('pelanggan-supplier*') ? 'active' : '' }}"><i
-                            class="bi bi-people-fill"></i>Pelanggan & Supplier</a></li>
-                <li class="nav-item"><a href="{{ url('/laporan') }}"
-                        class="nav-link {{ request()->is('laporan*') ? 'active' : '' }}"><i
-                            class="bi bi-journal-text"></i>Laporan Keuangan</a></li>
-                <li class="nav-item"><a href="{{ url('/notifikasi') }}"
-                        class="nav-link {{ request()->is('notifikasi*') ? 'active' : '' }}"><i
-                            class="bi bi-bell-fill"></i>Pengingat & Notifikasi</a></li>
+                <li class="nav-item">
+                    <a href="{{ route('dashboard') }}"
+                        class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                        <i class="bi bi-speedometer2"></i>Dashboard
+                    </a>
+                </li>
+
+                {{-- DIGABUNG MENJADI SATU MENU KEUANGAN --}}
+                <li class="nav-item">
+                    <a href="{{ route('keuangan.index') }}"
+                        class="nav-link {{ request()->routeIs('keuangan.*') ? 'active' : '' }}">
+                        <i class="bi bi-cash-stack"></i>Kelola Keuangan
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{{ route('domba.index') }}"
+                        class="nav-link {{ request()->routeIs('domba.*') ? 'active' : '' }}">
+                        <i class="bi bi-boxes"></i>Manajemen Stok
+                    </a>
+                </li>
+
+                {{-- DIGANTI MENJADI KELOLA KONTAK --}}
+                <li class="nav-item">
+                    <a href="{{ route('kontak.index') }}"
+                        class="nav-link {{ request()->routeIs('kontak.*') ? 'active' : '' }}">
+                        <i class="bi bi-people-fill"></i>Kelola Kontak
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{{ route('laporan.index') }}"
+                        class="nav-link {{ request()->routeIs('laporan.*') ? 'active' : '' }}">
+                        <i class="bi bi-journal-text"></i>Laporan Keuangan
+                    </a>
+                </li>
             </ul>
         </div>
 
         <div class="main-content-wrapper">
             <nav class="top-navbar d-flex justify-content-end align-items-center">
-                {{-- Bagian Search Bar sudah dihapus dari sini --}}
                 <div class="d-flex align-items-center">
                     <a href="#" class="nav-link"><i class="bi bi-gear fs-5 me-3"></i></a>
                     <a href="#" class="nav-link"><i class="bi bi-bell fs-5 me-4"></i></a>
@@ -158,7 +173,8 @@
             </main>
         </div>
     </div>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     @stack('scripts')
 </body>
