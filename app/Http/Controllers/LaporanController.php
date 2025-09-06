@@ -19,15 +19,15 @@ class LaporanController extends Controller
 
         // 1. Ambil semua data pemasukan untuk periode yang dipilih
         $pemasukans = Pemasukan::whereYear('tanggal', $year)
-                               ->whereMonth('tanggal', $month)
-                               ->orderBy('tanggal', 'asc')
-                               ->get();
-        
+            ->whereMonth('tanggal', $month)
+            ->orderBy('tanggal', 'asc')
+            ->get();
+
         // 2. Ambil semua data pengeluaran untuk periode yang dipilih
         $pengeluarans = Pengeluaran::whereYear('tanggal', $year)
-                                  ->whereMonth('tanggal', $month)
-                                  ->orderBy('tanggal', 'asc')
-                                  ->get();
+            ->whereMonth('tanggal', $month)
+            ->orderBy('tanggal', 'asc')
+            ->get();
 
         // 3. Hitung totalnya
         $totalPemasukan = $pemasukans->sum('jumlah');
@@ -73,7 +73,7 @@ class LaporanController extends Controller
         );
 
         // Callback untuk menulis data CSV baris per baris
-        $callback = function() use($pemasukans, $pengeluarans, $totalPemasukan, $totalPengeluaran, $labaRugi, $periodeFormatted) {
+        $callback = function () use ($pemasukans, $pengeluarans, $totalPemasukan, $totalPengeluaran, $labaRugi, $periodeFormatted) {
             $file = fopen('php://output', 'w');
 
             // Judul Laporan
