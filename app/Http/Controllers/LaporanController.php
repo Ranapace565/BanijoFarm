@@ -13,8 +13,22 @@ class LaporanController extends Controller
         $periode = $request->input('periode', 'semua');
         $query = Keuangan::latest();
 
+<<<<<<< HEAD
         $tanggalMulai = null;
         $tanggalSelesai = Carbon::now()->endOfDay();
+=======
+        // 1. Ambil semua data pemasukan untuk periode yang dipilih
+        $pemasukans = Pemasukan::whereYear('tanggal', $year)
+            ->whereMonth('tanggal', $month)
+            ->orderBy('tanggal', 'asc')
+            ->get();
+
+        // 2. Ambil semua data pengeluaran untuk periode yang dipilih
+        $pengeluarans = Pengeluaran::whereYear('tanggal', $year)
+            ->whereMonth('tanggal', $month)
+            ->orderBy('tanggal', 'asc')
+            ->get();
+>>>>>>> 39970ab37613c46089147a22a64bdd68eec6d1a2
 
         switch ($periode) {
             case 'harian':
@@ -98,8 +112,13 @@ class LaporanController extends Controller
             "Expires"             => "0"
         );
 
+<<<<<<< HEAD
         // Buat file CSV di memori
         $callback = function() use($transaksis) {
+=======
+        // Callback untuk menulis data CSV baris per baris
+        $callback = function () use ($pemasukans, $pengeluarans, $totalPemasukan, $totalPengeluaran, $labaRugi, $periodeFormatted) {
+>>>>>>> 39970ab37613c46089147a22a64bdd68eec6d1a2
             $file = fopen('php://output', 'w');
 
             // Tulis baris header
