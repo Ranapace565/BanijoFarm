@@ -9,34 +9,29 @@ class Domba extends Model
 {
     use HasFactory;
 
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
     protected $table = 'domba';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'jenis',
-        'umur',
-        'harga',
         'status',
-        'keterangan',
+        'tanggal_lahir',
+        'induk',
+        'jantan',
+        'gender',
+        'nama',
+        'jam_lahir',
+        'bb_lahir',
+        'tanggal_kematian',
+        'no_tag',
+        'penyebab_kematian',
+        'keterangan'
     ];
 
-    /**
-     * The attributes that should be cast.
-     * INI ADALAH PERBAIKANNYA.
-     * Ini akan mengubah 'created_at' dan 'updated_at' menjadi objek Tanggal (Carbon)
-     * setiap kali data diakses, sehingga fungsi ->format() bisa digunakan.
-     *
-     * @var array
-     */
+    public function pertumbuhan()
+    {
+        return $this->hasMany(DombaPertumbuhan::class);
+    }
+
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

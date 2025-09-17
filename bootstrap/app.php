@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Application;
+use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
@@ -14,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Ganti (replace) VerifyCsrfToken bawaan framework dengan milik kita
         $middleware->web(replace: [
             \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class => \App\Http\Middleware\VerifyCsrfToken::class,
+        ]);
+        $middleware->alias([
+            'Admin' => AdminMiddleware::class,
         ]);
     })
 

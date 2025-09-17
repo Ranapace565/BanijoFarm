@@ -3,103 +3,107 @@
 namespace App\Http\Controllers;
 
 use App\Models\Domba;
-use App\Models\Keuangan; // <-- Tambahkan ini untuk mengakses tabel keuangan
+use App\Models\DombaPertumbuhan;
+use App\Models\Keuangan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DombaController extends Controller
 {
-    /**
-     * Menampilkan daftar semua domba (halaman utama stok).
-     */
     public function index()
     {
-        $dombas = Domba::latest()->paginate(10);
+        $dombas = Domba::with('pertumbuhan')->latest()->paginate(10);
         return view('pages.domba.index', compact('dombas'));
     }
 
-    /**
-     * Menampilkan form untuk menambah domba baru.
-     */
     public function create()
     {
         return view('pages.domba.create');
     }
 
-    /**
-     * Menyimpan data domba baru ke database.
-     */
     public function store(Request $request)
     {
-        // 'harga' di sini adalah harga beli
-        $request->validate([
-            'jenis' => 'required|string|max:100',
-            'umur' => 'required|integer|min:0',
-            'harga' => 'required|numeric|min:0',
+        $validated = $request->validate([
+            // Data kelahiran
+            'jenis' => 'nullable|string|max:100',
+            'tanggal_lahir' => 'nullable|date',
+            'jam_lahir' => 'nullable|date_format:H:i',
+            'induk' => 'nullable|string|max:100',
+            'jantan' => 'nullable|string|max:100',
+            'gender' => 'nullable|in:jantan,betina',
+            'nama' => 'nullable|string|max:100',
+            'bb_lahir' => 'nullable|numeric|min:0',
+
+            // Status domba
             'status' => 'required|in:tersedia,terjual,mati',
             'keterangan' => 'nullable|string',
+
+            // Data kematian
+            'tanggal_kematian' => 'nullable|date',
+            'no_tag' => 'nullable|string|max:50|unique:domba,no_tag',
+            'penyebab_kematian' => 'nullable|string|max:255',
         ]);
 
-        Domba::create($request->all());
+        $domba = Domba::create($validated);
 
-        return redirect()->route('domba.index')
-                         ->with('success', 'Data domba baru berhasil ditambahkan.');
+        return redirect()->route('domba.index')->with('success', 'Data domba berhasil ditambahkan.');
     }
 
-    /**
-     * Menampilkan form untuk mengedit data domba.
-     */
     public function edit(Domba $domba)
     {
-        return view('pages.domba.edit', compact('domba'));
-    }
+        $domba->load('pertumbuhan');
 
-    /**
-     * PERBAIKAN UTAMA: Mengupdate data domba dan otomatis mencatat pemasukan.
-     */
-    public function update(Request $request, Domba $domba)
-    {
-        $request->validate([
-            'jenis' => 'required|string|max:100',
-            'umur' => 'required|integer|min:0',
-            'harga' => 'required|numeric|min:0', // Ini harga beli
-            'status' => 'required|in:tersedia,terjual,mati',
-            'keterangan' => 'nullable|string',
-            // Tambahkan validasi untuk harga jual jika statusnya 'terjual'
-            'harga_jual' => 'required_if:status,terjual|nullable|numeric|min:0',
-        ]);
-
-        $statusLama = $domba->status; // Simpan status lama sebelum diupdate
-
-        // Update data domba dengan data dari form (jenis, umur, harga beli, dll)
-        $domba->update($request->except('harga_jual'));
-
-        // Logika Otomatis: Cek apakah status berubah menjadi 'terjual'
-        if ($statusLama != 'terjual' && $request->status == 'terjual') {
-            
-            // Buat catatan pemasukan baru dari harga jual
-            Keuangan::create([
-                'jenis' => 'pemasukan',
-                'jumlah' => $request->harga_jual, // Ambil dari input harga jual
-                'keterangan' => "Penjualan domba ID #{$domba->id} - {$domba->jenis}",
-            ]);
-
-            // Set pesan sukses yang lebih informatif
-            $pesanSukses = 'Data domba berhasil diperbarui DAN pemasukan otomatis dicatat.';
-        } else {
-            $pesanSukses = 'Data domba berhasil diperbarui.';
+        // Kalau request dari AJAX, kembalikan JSON
+        if (request()->ajax()) {
+            return response()->json($domba);
         }
 
-        return redirect()->route('domba.index')->with('success', $pesanSukses);
+        return response()->json($domba);
     }
 
-    /**
-     * Menghapus data domba dari database.
-     */
+
+    public function update(Request $request, Domba $domba)
+    {
+        // dd();
+        $validated = $request->validate([
+            'jenis' => 'nullable|string|max:100',
+            'tanggal_lahir' => 'nullable|date',
+            'jam_lahir' => 'nullable|date_format:H:i',
+            'induk' => 'nullable|string|max:100',
+            'jantan' => 'nullable|string|max:100',
+            'gender' => 'nullable|in:jantan,betina',
+            'nama' => 'nullable|string|max:100',
+            'bb_lahir' => 'nullable|numeric|min:0',
+
+            'status' => 'nullable|in:tersedia,terjual,mati',
+            'keterangan' => 'nullable|string',
+
+            'tanggal_kematian' => 'nullable|date',
+            'no_tag' => 'nullable|string|max:50|unique:domba,no_tag,' . $domba->id,
+            'penyebab_kematian' => 'nullable|string|max:255',
+
+            // 'harga_jual' => 'nullable_if:status,terjual|nullable|numeric|min:0',
+        ]);
+
+        $statusLama = $domba->status;
+        $domba->update(collect($validated)->except('harga_jual')->toArray());
+
+        // if ($statusLama != 'terjual' && $validated['status'] === 'terjual' && $request->filled('harga_jual')) {
+        //     Keuangan::create([
+        //         'jenis' => 'pemasukan',
+        //         'jumlah' => $request->harga_jual,
+        //         'keterangan' => "Penjualan domba ID #{$domba->id} - {$domba->jenis}",
+        //     ]);
+        // }
+
+        return redirect()->route('domba.index')->with('success', 'Data domba berhasil diperbarui.');
+    }
+
+
     public function destroy(Domba $domba)
     {
         $domba->delete();
-
-        return redirect()->route('domba.index')
-                         ->with('success', 'Data domba berhasil dihapus.');
+        return redirect()->route('domba.index')->with('success', 'Data domba berhasil dihapus.');
     }
 }

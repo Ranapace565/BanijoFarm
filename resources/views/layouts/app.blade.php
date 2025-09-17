@@ -152,6 +152,17 @@
                         <i class="bi bi-journal-text"></i>Laporan Keuangan
                     </a>
                 </li>
+                @auth
+                    @if (auth()->user()->role === 'admin')
+                        <li class="nav-item">
+                            <a href="{{ route('admin.users') }}"
+                                class="nav-link {{ request()->routeIs('kontak.*') ? 'active' : '' }}">
+                                <i class="bi bi-people-fill"></i>Kelola Akun
+                            </a>
+
+                        </li>
+                    @endif
+                @endauth
             </ul>
         </div>
 

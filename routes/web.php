@@ -3,79 +3,68 @@
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Request;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ObatController;
 use App\Http\Controllers\StokController;
 use App\Http\Controllers\DombaController;
 use App\Http\Controllers\PakanController;
+use App\Http\Controllers\KontakController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\KeuanganController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PeralatanController;
 use App\Http\Controllers\TelegramBotController;
-use App\Http\Controllers\KontakController;
-use App\Http\Controllers\KeuanganController;
+use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\DombaPertumbuhanController;
 // use App\Http\Controllers\Auth\LoginController;
 
-// // Rute untuk menampilkan halaman login
-// Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('/register', [AuthController::class, 'register'])->name('register');
 
-// // Rute untuk memproses data login
-// Route::post('/login', [LoginController::class, 'login']);
-
-// // Rute untuk logout
-// Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-
-
-// Rute Dashboard
-Route::get('/', [DashboardController::class, 'index']);
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
-// === RUTE UNTUK STOK (LENGKAP) ===
-Route::get('/stok', [StokController::class, 'index'])->name('stok.index');
-// // Pakan
-// Route::post('/pakan', [PakanController::class, 'store'])->name('pakan.store');
-// Route::get('/pakan/{id}', [PakanController::class, 'show'])->name('pakan.show');
-// Route::put('/pakan/{id}', [PakanController::class, 'update'])->name('pakan.update');
-// Route::delete('/pakan/{id}', [PakanController::class, 'destroy'])->name('pakan.destroy');
-// // Obat
-// Route::post('/obat', [ObatController::class, 'store'])->name('obat.store');
-// Route::get('/obat/{id}', [ObatController::class, 'show'])->name('obat.show');
-// Route::put('/obat/{id}', [ObatController::class, 'update'])->name('obat.update');
-// Route::delete('/obat/{id}', [ObatController::class, 'destroy'])->name('obat.destroy');
-// // Peralatan
-// Route::post('/peralatan', [PeralatanController::class, 'store'])->name('peralatan.store');
-// Route::get('/peralatan/{id}', [PeralatanController::class, 'show'])->name('peralatan.show');
-// Route::put('/peralatan/{id}', [PeralatanController::class, 'update'])->name('peralatan.update');
-// Route::delete('/peralatan/{id}', [PeralatanController::class, 'destroy'])->name('peralatan.destroy');
-
-// === RUTE UNTUK LAPORAN (LENGKAP) ===
-Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
-Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
-
-// Rute Notifikasi & Ekspor (masih dummy)
-Route::get('/ekspor', function () {
-    return view('pages.ekspor');
-});
-Route::get('/notifikasi', function () {
-    return view('pages.notifikasi');
+Route::middleware(['auth', 'Admin'])->group(function () {
+    Route::get('/admin/users', [UserManagementController::class, 'index'])->name('admin.users');
+    Route::post('/admin/users/{id}/approve', [UserManagementController::class, 'approve'])->name('admin.users.approve');
+    Route::post('/admin/users/{id}/reject', [UserManagementController::class, 'reject'])->name('admin.users.reject');
+    Route::post('/admin/users/{id}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('admin.users.toggle');
 });
 
-Route::get('/pelanggan-supplier', [KontakController::class, 'index'])->name('kontak.index');
 
-// Rute untuk proses CRUD (Create, Read, Update, Delete)
-Route::post('/kontak', [KontakController::class, 'store'])->name('kontak.store');
-Route::get('/kontak/{id}', [KontakController::class, 'show'])->name('kontak.show');
-Route::put('/kontak/{id}', [KontakController::class, 'update'])->name('kontak.update'); // Untuk update
-Route::delete('/kontak/{id}', [KontakController::class, 'destroy'])->name('kontak.destroy'); // Untuk delete
+Route::middleware(['auth'])->group(function () {
+    // === RUTE DASHBOARD ===
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index']); // duplikat tetap, agar /dashboard & / sama
 
-// Route::post('/telegram/webhook', [TelegramBotController::class, 'handleWebhook']);
-// Route::post('/telegram/webhook', function (Request $request) {
-//     $update = Telegram::commandsHandler(true);
-//     Log::info('Telegram Update:', $request->all());
-//     return 'ok'; // WAJIB return string agar tidak 419
-// });
-Route::post('/telegram/webhook', [TelegramBotController::class, 'handleWebhook']);
+    // === STOK ===
+    Route::get('/stok', [StokController::class, 'index'])->name('stok.index');
 
-// Rute ini akan menangani semua kebutuhan CRUD untuk keuangan
-Route::resource('domba', DombaController::class);
-Route::resource('keuangan', KeuanganController::class);
-Route::resource('kontak', KontakController::class);
+    // === LAPORAN ===
+    Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+    Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
+
+    // === HALAMAN BIASA ===
+    Route::get('/ekspor', fn() => view('pages.ekspor'))->name('ekspor');
+    Route::get('/notifikasi', fn() => view('pages.notifikasi'))->name('notifikasi');
+
+    // === TELEGRAM BOT ===
+    Route::post('/telegram/webhook', [TelegramBotController::class, 'handleWebhook'])->name('telegram.webhook');
+
+    // === RESOURCE ROUTES ===
+    Route::resource('domba', DombaController::class);
+    Route::resource('keuangan', KeuanganController::class);
+    Route::resource('kontak', KontakController::class);
+
+    Route::get('/domba/{domba}/edit', [DombaController::class, 'edit'])->name('domba.edit');
+    Route::post('/domba/{domba}/update', [DombaController::class, 'update'])->name('domba.update');
+
+    // === PERTUMBUHAN DOMBA (CRUD NESTED) ===
+    Route::prefix('domba')->group(function () {
+        Route::get('{domba}/pertumbuhan', [DombaPertumbuhanController::class, 'index'])->name('pertumbuhan.index');
+        Route::get('{domba}/pertumbuhan/create', [DombaPertumbuhanController::class, 'create'])->name('pertumbuhan.create');
+        Route::post('{domba}/pertumbuhan', [DombaPertumbuhanController::class, 'store'])->name('pertumbuhan.store');
+        Route::get('pertumbuhan/{pertumbuhan}/edit', [DombaPertumbuhanController::class, 'edit'])->name('pertumbuhan.edit');
+        Route::put('pertumbuhan/{pertumbuhan}', [DombaPertumbuhanController::class, 'update'])->name('pertumbuhan.update');
+        Route::delete('pertumbuhan/{pertumbuhan}', [DombaPertumbuhanController::class, 'destroy'])->name('pertumbuhan.destroy');
+    });
+});
